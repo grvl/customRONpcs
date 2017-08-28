@@ -1,0 +1,311 @@
+-	script	WAYPOINT_ONINIT	-,{
+//Adds new maps to the waypoint_location table
+OnInit:
+	$@WAYPOINT_CITY = 0;
+	$@WAYPOINT_DUNGEON = 1;
+	$@WAYPOINT_FIELD = 2;
+//add cities
+	.@CONTROL = 1;
+	// callfunc "WAYPOINT_FEEDING", control, map_name, map_disp_name, type, priority
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "prontera", "Prontera", $@WAYPOINT_CITY, 99);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "aquitaine", "Aquitaine", $@WAYPOINT_CITY, 1);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "alberta", "Alberta", $@WAYPOINT_CITY, 99);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "payon", "Payon", $@WAYPOINT_CITY, 99);
+	
+// add dungeons
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "aqt_dun", "Aquitaine Cave", $@WAYPOINT_DUNGEON, 99);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "pay_dun", "Payon Cave", $@WAYPOINT_DUNGEON, 99);
+	
+// add fields
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "aqt_fild", "Aquitaine Field", $@WAYPOINT_FIELD, 99);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "pay_fild", "Payon Forest", $@WAYPOINT_FIELD, 99);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "moc_fild", "Sograt Desert", $@WAYPOINT_FIELD, 99);
+	.@CONTROL = callfunc ("WAYPOINT_FEEDING", .@CONTROL, "prt_fild", "Prontera Fields", $@WAYPOINT_FIELD, 99);
+	
+	if (!.@CONTROL) debugmes "Finished feeding the main maps into the waypoint system";
+end;
+}
+
+function	script	WAYPOINT_FEEDING	{
+	.@CONTROL = getarg(0);
+	.@map_name$ = getarg(1);
+	.@map_display_name$ = getarg(2);
+	.@map_type = getarg(3);
+	.@priority = getarg(4);
+	
+	query_sql (("SELECT COUNT(*) FROM waypoint_location WHERE map_name = '"+.@map_name$+"' AND map_flag = 1"),.@SQLCOUNT);
+	if (.@SQLCOUNT <= .@CONTROL){
+		.@CONTROL = .@SQLCOUNT;
+		query_sql ("UPDATE waypoint_location SET map_display_name = '"+.@map_display_name$+"', priority = "+.@priority+" WHERE map_name = '"+.@map_name$+"' AND map_flag = 1");
+	}
+	if (!.@SQLCOUNT) query_sql ("INSERT INTO waypoint_location (map_name, map_display_name, map_type, map_flag, x,  y, fee, priority) VALUES ('"+.@map_name$+"', '"+.@map_display_name$+"', "+.@map_type+", 1, 0, 0, 0, "+.@priority+")");
+	
+	return .@CONTROL;
+}
+
+
+function	script	WAYPOINT_LAST_WARP	{
+//removes zeny, teleports you to your location and update LAST_WARP variables
+	if (getarg(0) == "") return;
+	if(Zeny < getarg(4)){
+		mes @NAME$;
+		mes "You do not have enough zeny.";
+		close;
+		return;
+	}	
+	
+//	dispbottom "last warp: name = " + getarg(0) + " map = " + getarg(1) + " x= " + getarg(2) + " y = " + getarg(3) + " fee = " +getarg(4) + "";
+	
+	WAYPOINT_LAST_WARPname$ = replacestr(getarg(0),"'","''");
+	set WAYPOINT_LAST_WARPmap$, getarg(1);
+	set WAYPOINT_LAST_WARPx, getarg(2);
+	set WAYPOINT_LAST_WARPy, getarg(3);
+	set WAYPOINT_LAST_WARPfee, getarg(4);
+	set Zeny,Zeny-WAYPOINT_LAST_WARPfee;
+	warp WAYPOINT_LAST_WARPmap$, WAYPOINT_LAST_WARPx, WAYPOINT_LAST_WARPy;
+	
+	return;
+}
+function	script	WAYPOINT_SQL_COUNT	{
+//Counts the number of rows with certain characteristics in WAYPOINT_UNLOCKED
+//getarg(0) 0 = map_name, 1 = map_flag + map_name, 2 = map_type ; getarg(1) = map_name ; getarg(2) = map_flag ; getarg(3) = map_type
+	if(getarg(0) != 2){
+		.@EXTRA$ = " AND map_name LIKE '" + getarg(1) + "%'"; //0,1
+	}
+	if(getarg(0) == 2) .@EXTRA2$ = " AND map_type =" + getarg(3) + "";//2
+
+	if(getarg(0) == 1) .@EXTRA3$ = " AND map_flag =" + getarg(2) + "";//1
+	query_sql (("SELECT COUNT(*) FROM waypoint_unlocked WHERE char_id=" + getcharid(3) + .@EXTRA$ + .@EXTRA2$ + .@EXTRA3$), .@COUNT);
+	// dispbottom "SELECT COUNT(*) FROM waypoint_unlocked WHERE char_id=" + getcharid(3) + .@EXTRA$ + .@EXTRA2$ + .@EXTRA3$ +". Count = " + .@COUNT + "";
+	return .@COUNT;
+}
+
+function	script	BINARY	{
+//getarg(0) = max_flag, getarg(1) = number to check for
+//This function returns a string with all map_flags unlocked by the char
+	.@MAP_FLAG$ = "";
+	for (.@i = 1; .@i <= getarg(0); .@i *= 2){
+		if ( .@i & getarg(1)){
+		if (.@MAP_FLAG$ != "") 	set .@MAP_FLAG$, .@MAP_FLAG$ + " OR ";
+		set .@MAP_FLAG$, .@MAP_FLAG$ + "map_flag = " + .@i + "";
+		}
+	}
+	return .@MAP_FLAG$;
+	
+}
+
+function	script	NEW_WAYPOINT	{
+//new_waypoint creator
+	.@NAME$ = "[^FF7700Waypoint^000000]";
+	.@MAP_NAME$ = getarg(0);
+	.@IN_MAP_NAME$ = getarg(1);
+	.@WAYPOINT_FLAG = getarg(2);
+	.@WAYPOINT_NAME$ = getarg(3);
+	.@WAYPOINT_TYPE = getarg(4);
+	.@WAYPOINT_FEE = getarg(5);
+	.@WAYPOINT_PRIORITY = getarg(6);
+	.@RELOAD_MAP = 0;
+	
+//check if the waypoint is registered on the waypoint_location table, else create it
+	query_sql (("SELECT COUNT(*) FROM waypoint_location WHERE map_name ='"+.@MAP_NAME$+"' AND map_flag = "+.@WAYPOINT_FLAG+""),.@SQLCOUNT);
+	if (.@SQLCOUNT == 0){
+		 if (getmapxy(.@MAP_NAME2$, .@X, .@Y, UNITTYPE_NPC, strnpcinfo(0)) !=0) {
+                debugmes "Can't find coordinates!";
+				debugmes "Found map "+.@MAP_NAME2$+" and X:"+.@X+" Y:"+.@Y+"";
+                close;
+        }
+		else{
+			debugmes "Added warp on map "+.@MAP_NAME2$+" at X:"+.@X+" Y:"+.@Y+" to the waypoint_location table.";
+			query_sql ("INSERT INTO waypoint_location (map_name,in_map_name, map_display_name, map_type, map_flag, x, y, fee, priority) VALUES ('" +.@MAP_NAME$+ "','" +.@IN_MAP_NAME$+ "','" +.@WAYPOINT_NAME$+ "'," + .@WAYPOINT_TYPE+ "," +.@WAYPOINT_FLAG+ "," +.@X+ "," +(.@Y-1)+ ","+.@WAYPOINT_FEE+","+.@WAYPOINT_PRIORITY+")");
+			.@RELOAD_MAP = 1;
+			
+		}
+	}
+	
+	else {
+		if (getmapxy(.@MAP_NAME2$, .@X, .@Y, UNITTYPE_NPC, strnpcinfo(0)) !=0) {
+                debugmes "Can't find coordinates!";
+				debugmes "Found map "+.@MAP_NAME2$+" and X:"+.@X+" Y:"+.@Y+"";
+                close;
+        }
+		else{
+			query_sql (("SELECT COUNT(*) FROM waypoint_location WHERE map_name ='"+.@MAP_NAME$+"' AND in_map_name = '"+.@IN_MAP_NAME$+"' AND map_flag = "+.@WAYPOINT_FLAG+" AND map_display_name = '"+.@WAYPOINT_NAME$+"' AND map_type = "+.@WAYPOINT_TYPE+" AND fee = "+.@WAYPOINT_FEE+" AND x = "+.@X+" and y = "+(.@Y-1)+" and priority = "+.@WAYPOINT_PRIORITY+""),.@SQLCOUNT);
+			if (.@SQLCOUNT == 0){
+				//cant change in map name, map name or flag
+				query_sql("UPDATE waypoint_location SET map_display_name = '"+.@WAYPOINT_NAME$+"', map_type = "+.@WAYPOINT_TYPE+", fee = "+.@WAYPOINT_FEE+", x = "+.@X+", y = "+(.@Y-1)+", priority = "+.@WAYPOINT_PRIORITY+" WHERE map_flag = "+.@WAYPOINT_FLAG+" AND map_name='"+.@MAP_NAME$+"'");	
+				debugmes "Edited map "+.@MAP_NAME$+" flag "+.@WAYPOINT_FLAG+" on waypoint_location table.";
+			}
+		}
+	}
+}
+
+function	script	UNLOCK_WAYPOINT	{
+//update flags
+	.@NAME$ = "[^FF7700Waypoint^000000]";
+	.@MAP_NAME$ = getarg(0);
+	.@WAYPOINT_FLAG = getarg(1);
+	.@WAYPOINT_NAME$ = getarg(2);
+	.@WAYPOINT_TYPE = getarg(3);
+	.@RELOAD_MAP = 0;
+	
+	if (STARTQUEST < 12){
+	mes "You sense magic power emanating from this crystal. However, you're not sure what to do with it.";
+	close;
+	}
+
+//check if there's an already unlocked waypoint in that map	
+	if(callfunc ("WAYPOINT_SQL_COUNT",0,.@MAP_NAME$,0,0)){
+		query_sql (("SELECT map_flag FROM waypoint_unlocked WHERE char_id="+getcharid(3)+" AND map_name ='"+.@MAP_NAME$+"'"),.@FLAG);
+		if (!(.@FLAG & .@WAYPOINT_FLAG)){
+			.@FLAG += .@WAYPOINT_FLAG;
+			progressbar "green",5;
+			specialeffect 133, SELF;
+			soundeffect "wizard_icewall.wav",0;
+			query_sql("UPDATE waypoint_unlocked SET map_flag = "+.@FLAG+" WHERE char_id="+getcharid(3)+" AND map_name='"+.@MAP_NAME$+"'");	
+		}
+	}
+//else create a new line in the waypoint_unlocked table
+	else {
+		progressbar "green",5;
+		specialeffect 133, SELF;
+		soundeffect "wizard_icewall.wav",0;
+		query_sql ("INSERT INTO waypoint_unlocked (char_id, map_name, map_type, map_flag) VALUES ("+getcharid(3)+",'"+.@MAP_NAME$+"',"+.@WAYPOINT_TYPE+","+.@WAYPOINT_FLAG+")");
+	}	
+	
+	mes .@NAME$;
+	.@WAYPOINT_NAME$ = replacestr(.@WAYPOINT_NAME$,"''","'");
+	mes "Welcome to the ^0000FF" + .@WAYPOINT_NAME$ + " Waypoint^000000!";
+	mes "Where would you like to warp to?";
+	callfunc "WAYPOINT_TELEPORT", !(.@RELOAD_MAP);
+}
+
+function	script	WAYPOINT_TELEPORT	{
+	//WAYPOINT LOCATION = id, map_display_name, map_name, x, y, map_count, map_type, price
+	//WAYPOINT UNLOCKED = id, char_id, map_id, map_type, map_count
+	if (.maps_loaded == 1) .maps_loaded = getarg(0);
+	if (.maps_loaded == 0){
+	//Array with all maps saved on first run of npc
+	//cities
+		query_sql (("SELECT COUNT(DISTINCT map_name) FROM waypoint_location WHERE map_type = 0 ORDER BY priority, map_display_name"), .@SQLCOUNT);
+		if (.@SQLCOUNT > 126) debugmes "possible overflow on cities list";
+		query_sql (("SELECT map_display_name, map_name FROM waypoint_location WHERE map_type = 0 AND map_flag = 1 ORDER BY priority, map_display_name"), .CITIES_DISPLAY_NAME$,.CITIES_MAP$);
+	//dungeons	
+		query_sql (("SELECT COUNT(DISTINCT map_name) FROM waypoint_location WHERE map_type = 1 ORDER BY priority, map_display_name"), .@SQLCOUNT);
+		if (.@SQLCOUNT > 126) debugmes "possible overflow on dungeons list";
+		query_sql (("SELECT map_display_name, map_name FROM waypoint_location WHERE map_type = 1 AND map_flag = 1 ORDER BY priority, map_display_name"), .DUNG_DISPLAY_NAME$,.DUNG_MAP$);
+	//fields	
+		query_sql (("SELECT COUNT(DISTINCT map_name) FROM waypoint_location WHERE map_type = 2 ORDER BY priority, map_display_name"), .@SQLCOUNT);
+		if (.@SQLCOUNT > 126) debugmes "possible overflow on fields list";
+		query_sql (("SELECT map_display_name, map_name FROM waypoint_location WHERE map_type = 2 AND map_flag = 1 ORDER BY priority, map_display_name"), .FIELDS_DISPLAY_NAME$,.FIELDS_MAP$);
+	//max number of waypoints in a map	
+		query_sql (("SELECT MAX(map_flag) FROM waypoint_location"), .MAX_FLAG);
+		.maps_loaded = 1;
+	}
+
+	.@NAME$ = "[^FF7700Waypoint^000000]";	
+
+	.@WAYPOINT_NAME$ = replacestr(WAYPOINT_LAST_WARPname$,"''","'");
+
+L_warpmenu:
+//main menu
+	switch(select(("Last Warp [^0000FF"+((.@WAYPOINT_NAME$)?.@WAYPOINT_NAME$:"^0000FF-empty-^000000")+"^000000] (^FF0000"+((WAYPOINT_LAST_WARPfee)?WAYPOINT_LAST_WARPfee + "z" : "Free")+"^000000)"),
+				  ((callfunc("WAYPOINT_SQL_COUNT",2,"",0,0))?"Towns":""),
+				  ((callfunc("WAYPOINT_SQL_COUNT",2,"",0,2))?"Fields":""),
+				  ((callfunc("WAYPOINT_SQL_COUNT",2,"",0,1))?"Dungeons":""),
+				  "Exit")) {
+	
+	
+	//LAST WARP	
+	case 1: callfunc "WAYPOINT_LAST_WARP", WAYPOINT_LAST_WARPname$, WAYPOINT_LAST_WARPmap$, WAYPOINT_LAST_WARPx, WAYPOINT_LAST_WARPy, WAYPOINT_LAST_WARPfee; 
+	close;
+
+	//CITIES
+	case 2:
+		.@SIZE = getarraysize(.CITIES_DISPLAY_NAME$);
+		.@OPTIONS$ = "";
+		for (.@i = 0; .@i < .@SIZE; .@i++){	
+			if (.@i) set .@OPTIONS$, .@OPTIONS$ + ":";
+			if(callfunc ("WAYPOINT_SQL_COUNT", 0, .CITIES_MAP$[.@i],0,0)){
+				set .@OPTIONS$, .@OPTIONS$ + .CITIES_DISPLAY_NAME$[.@i];
+			}
+			else {
+				set .@OPTIONS$, .@OPTIONS$ + "";
+			}
+		}
+		
+		if (getstrlen(.@OPTIONS$) > 1900) debugmes "possible overflow on unlocked cities";
+		set .@selection,select(.@OPTIONS$)-1;
+		.@MAP_NAME$ = .CITIES_MAP$[.@selection];
+		goto L_WARPMENU2;	
+
+	//FIELDS
+	case 3:	
+		.@SIZE = getarraysize(.FIELDS_DISPLAY_NAME$);
+		.@OPTIONS$ = "";
+		for (.@i = 0; .@i < .@SIZE; .@i++){	
+			if (.@i) set .@OPTIONS$, .@OPTIONS$ + ":";
+			if(callfunc ("WAYPOINT_SQL_COUNT", 0, .FIELDS_MAP$[.@i],0,0)){
+				set .@OPTIONS$, .@OPTIONS$ + .FIELDS_DISPLAY_NAME$[.@i];
+			}
+			else {
+				set .@OPTIONS$, .@OPTIONS$ + "";
+			}
+		}
+		
+		if (getstrlen(.@OPTIONS$) > 1900) debugmes "possible overflow on unlocked fields";
+		set .@selection,select(.@OPTIONS$)-1;
+		.@MAP_NAME$ = .FIELDS_MAP$[.@selection];
+		goto L_WARPMENU2;
+		
+	//DUNGEONS
+	case 4:
+		.@SIZE = getarraysize(.DUNG_DISPLAY_NAME$);
+		.@OPTIONS$ = "";
+		for (.@i = 0; .@i < .@SIZE; .@i++){	
+			if (.@i) set .@OPTIONS$, .@OPTIONS$ + ":";
+			if(callfunc ("WAYPOINT_SQL_COUNT", 0, .DUNG_MAP$[.@i],0,0)){
+				set .@OPTIONS$, .@OPTIONS$ + .DUNG_DISPLAY_NAME$[.@i];
+			}
+			else {
+				set .@OPTIONS$, .@OPTIONS$ + "";
+			}
+		}
+		
+		if (getstrlen(.@OPTIONS$) > 1900) debugmes "possible overflow on unlocked dungeons";
+		set .@selection,select(.@OPTIONS$)-1;
+		.@MAP_NAME$ = .DUNG_MAP$[.@selection];
+		
+		goto L_WARPMENU2;
+
+	case 5:
+		close;
+		}
+		
+		L_WARPMENU2:
+		//After the map is selected (switch) select from the waypoints here
+		query_sql (("SELECT SUM(map_flag) FROM waypoint_unlocked WHERE char_id = "+getcharid(3)+" AND map_name LIKE '"+.@MAP_NAME$+"%'"),.@MAP_FLAG);
+		.@MAP_FLAG_STR$ = callfunc ("BINARY", .MAX_FLAG, .@MAP_FLAG);
+		if (.@MAP_FLAG_STR$ != "") set .@MAP_FLAG_STR$," AND (" + .@MAP_FLAG_STR$ + ")";
+		query_sql(("SELECT map_display_name, id, fee FROM waypoint_location WHERE map_name LIKE '"+.@MAP_NAME$+"%'" + .@MAP_FLAG_STR$ + " ORDER BY priority, map_display_name"), .@WAYPOINT_DISPLAY_NAME$, .@WAYPOINT_ID, .@WAYPOINT_FEE);
+
+		.@OPTIONS$ = "";
+		.@SIZE = getarraysize(.@WAYPOINT_ID);
+		
+		for (.@i = 0; .@i < .@SIZE; .@i++){	
+			if (.@i) set .@OPTIONS$, .@OPTIONS$ + ":";
+			if (.@WAYPOINT_FEE[.@i]) set .@OPTIONS$, .@OPTIONS$ + .@WAYPOINT_DISPLAY_NAME$[.@i] + " (^FF0000"+.@WAYPOINT_FEE[.@i]+"z^000000)";
+			else if (.@WAYPOINT_DISPLAY_NAME$[.@i] != "") set .@OPTIONS$, .@OPTIONS$ + .@WAYPOINT_DISPLAY_NAME$[.@i] + " (^FF0000Free^000000)";
+			else set .@OPTIONS$, .@OPTIONS$ + .@WAYPOINT_DISPLAY_NAME$[.@i];
+		}	
+		if (getstrlen(.@OPTIONS$) > 1900) debugmes "possible overflow on unlocked waypoints";
+		set .@selection,select(.@OPTIONS$)-1;
+
+		.@MAP_ID = .@WAYPOINT_ID[.@selection];
+		.@MAP_DISPLAY_NAME$ = .@WAYPOINT_DISPLAY_NAME$[.@selection];
+		.@FEE = .@WAYPOINT_FEE[.@selection];
+		query_sql (("SELECT map_name,in_map_name, x, y FROM waypoint_location WHERE id ="+.@MAP_ID+""), .@MAP_NAME$,.@IN_MAP_NAME$, .@X, .@Y);
+		if (.@IN_MAP_NAME$ != "") .@MAP_NAME$ = .@IN_MAP_NAME$;
+		callfunc "WAYPOINT_LAST_WARP", .@MAP_DISPLAY_NAME$, .@MAP_NAME$, .@X, .@Y, .@FEE;
+		close;
+
+}

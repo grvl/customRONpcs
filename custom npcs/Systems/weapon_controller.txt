@@ -1,0 +1,100 @@
+-	script	WEAPONCOSTUME_CONTROL	-1,{
+//1.Daggers	2.One-Handed Swords	3.Two-Handed Swords	4.One-Handed Spears	5.Two-Handed Spears	6.One-Handed Axes	7.Two-Handed Axes	8.Maces	9.(not used)
+//10.Wand/Staff	11.Bows/Crossbows	12.Knuckle Weapons	13.Musical Instruments	14.Whips	15.Books	16.Katars	17.Revolvers	18.Rifles
+//19.Shotguns	20.Gatling guns	21.Grenade launchers	22.Fuuma shuriken	23.Two-handed staves	24.Max Type
+//
+OnInit:
+setarray $NOVICEWEAPON[0],2,1,1,0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,-3;
+setarray $SWORDMANWEAPON[0],3,1,1,1,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,-3;
+setarray $MAGEWEAPON[0],5,1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,-3;
+setarray $ARCHERWEAPON[0],4,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,-3;
+setarray $MERCHANTWEAPON[0],6,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-3;
+end;
+
+OnPCLoginEvent:
+set @INITLIMA,1;
+if (getequipid(EQI_SHADOW_ARMOR ) < 1) {
+	copyarray @USERWEAPON[0], $NOVICEWEAPON[0], getarraysize($NOVICEWEAPON);
+	}
+callfunc "REMOVEWEAPON";
+end;
+
+OnPCLogoutEvent:
+set @INITLIMA,0;
+end;
+
+OnPCGetExpEvent:
+if (WEAPONEXPMOBKILLED) == 1 {
+dispbottom "Gained "+WEAPONEXPGAINED+" EXP.";
+set WEAPONEXPMOBKILLED,0;
+} else {
+dispbottom "Gained EXP through other means. No Weapon EXP."; }
+end;
+
+}
+
+function	script	EQUIP_WEAPONCHECK	{
+	callfunc "REMOVEWEAPON";
+	callfunc "WEAPON_LEVEL_MINEQUIP", getarg(0,0);
+	callfunc "WEAPON_EXP_GAIN",0;
+	return;
+}
+
+function	script	EQUIP_COSTUME	{
+switch(getarg(0)){
+	case 1:
+	copyarray @USERWEAPON[0], $SWORDMANWEAPON[0], getarraysize($SWORDMANWEAPON);
+	break;
+	
+	case 2:
+	copyarray @USERWEAPON[0], $MAGEWEAPON[0], getarraysize($MAGEWEAPON);
+	break;
+	
+	case 3:
+	copyarray @USERWEAPON[0], $ARCHERWEAPON[0], getarraysize($ARCHERWEAPON);
+	break;
+	
+	case 5:
+	copyarray @USERWEAPON[0], $MERCHANTWEAPON[0], getarraysize($MERCHANTWEAPON);
+	break;
+	
+	default:
+	copyarray @USERWEAPON[0], $NOVICEWEAPON[0], getarraysize($NOVICEWEAPON);
+	break;
+	}
+	callfunc "REMOVEWEAPON";
+	return;
+}
+
+function	script	UNEQUIP_COSTUME	{
+	changebase Class;
+	copyarray @USERWEAPON[0], $NOVICEWEAPON[0], getarraysize($NOVICEWEAPON);
+	callfunc "REMOVEWEAPON";
+	return;
+}
+
+function	script	REMOVEWEAPON	{
+	if (@INITLIMA == 1) {
+		if (getequipid(EQI_HAND_R) > 0) {
+			if (@USERWEAPON[getiteminfo(getequipid(EQI_HAND_R),11)] < 1) { 		
+				unequip (EQI_HAND_R);
+				dispbottom "This weapon is not compatible with your current outfit. Please change outfit and try again.";
+				if (getequipid(EQI_SHADOW_ARMOR ) < 1) {
+					dispbottom "While you are not wearing an outfit, you are allowed to equip: Daggers, Maces, One-Handed Swords, One-Handed Axes, and One-Handed Staves.";
+					}
+				}
+			}
+//bullet types: 1 Arrow, 2 Daggers, 3 Bullets, 4 Shells, 5 Grenades, 6 Shuriken, 7 Kunai, 8 Cannonball, 9 Sling Item
+		if (getequipid(EQI_AMMO) > 0) {
+			//Case Arrows
+			if ((getiteminfo(getequipid(EQI_AMMO),11) == 1) && (@USERWEAPON[11] < 1)) { 		
+				unequip (EQI_AMMO);
+				dispbottom "This ammunition is not compatible with your current outfit. Please change outfit and try again.";
+				if (getequipid(EQI_SHADOW_ARMOR ) < 1) {
+					dispbottom "While you are not wearing an outfit, you are allowed to equip: Daggers, Maces, One-Handed Swords, One-Handed Axes, and One-Handed Staves.";
+					}
+				}
+			}
+		}
+	return;
+}

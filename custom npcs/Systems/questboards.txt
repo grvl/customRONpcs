@@ -1,0 +1,328 @@
+//MAKE A DUPLICATE OF THIS NPC
+// NPC NAME#min lv
+adv_guild,53,105,5	script	Lv1+ Quests#1	857,{
+
+	.@min_lv = strnpcinfo(2);
+	mes "[^0000FFQuest Board^000000]";
+	if (BaseLevel < .@min_lv){
+		mes "Your level is too low.";
+		close;
+	}
+	mes "Choose the quest you'd like to start or complete.", "^009900Green^000000 quests have been completed.", "^FF7700Orange^000000 quests are currently active.", "^808080Gray^000000 quests are on cooldown.";
+	next;
+	callfunc "QUEST_LIST", .@min_lv;
+	close;
+}
+
+adv_guild,61,105,5	duplicate(Lv1+ Quests#1)	Lv10+ Quests#10	857,;
+adv_guild,69,105,5	duplicate(Lv1+ Quests#1)	Lv20+ Quests#20	857,;
+adv_guild,77,105,5	duplicate(Lv1+ Quests#1)	Lv30+ Quests#30	857,;
+adv_guild,85,105,5	duplicate(Lv1+ Quests#1)	Lv40+ Quests#40	857,;
+
+function	script	QUEST_LIST	{
+	.@MIN_LEVEL = getarg(0);
+	
+	.@count = query_sql("SELECT quest_id, quest_delay_id, name, max_lv FROM `questboard` WHERE min_lv = "+.@MIN_LEVEL+" AND quest_mode = 0 ORDER BY priority",.@quest_id, .@quest_delay, .@name$, .@max_lv);
+	.@count2 = query_sql("SELECT quest_id, quest_delay_id, name, max_lv FROM `questboard` WHERE min_lv = "+.@MIN_LEVEL+" AND quest_mode = 1 ORDER BY priority",.@quest_id2, .@quest_delay2, .@name2$, .@max_lv2);
+	
+	//QUEST_DELETE, [cooldown ids], [max level]...
+	// callfunc "QUEST_DELETE", 1002,20,1004,20,1006,20,1008,20,1027,20,1047,20,1049,20;
+	for (.@i = 0; .@i < .@count; .@i++) callfunc "QUEST_DELETE", .@quest_delay[.@i], .@max_lv[.@i];
+	for (.@i = 0; .@i < .@count2; .@i++) callfunc "QUEST_DELETE", .@quest_delay2[.@i], .@max_lv2[.@i];
+	
+	menu (.@count)?"Killing Quests":"", L_Kill, (.@count2)?"Item Quests":"", L_Item;
+	
+	L_Kill:
+	.@opt$= "";
+	for (.@i = 0; .@i < .@count; .@i++){
+		.@opt$ = .@opt$ + callfunc ("QUEST_AVAILABLE",.@quest_id[.@i],.@quest_delay[.@i],.@name$[.@i],.@max_lv[.@i]) +":";
+	}
+	set .@select, select (.@opt$) - 1;
+	callfunc "QUEST_DISPLAY", .@quest_id[.@select];
+	close;
+		
+	L_Item:
+	.@opt$= "";
+	for (.@i = 0; .@i < .@count2; .@i++){
+		.@opt$ = .@opt$ + callfunc ("QUEST_AVAILABLE",.@quest_id2[.@i],.@quest_delay2[.@i],.@name2$[.@i],.@max_lv2[.@i]) +":";
+	}
+	set .@select, select (.@opt$) - 1;
+	callfunc "QUEST_DISPLAY", .@quest_id2[.@select];
+	close;
+}
+ 
+//ADD NEW QUESTS HERE, THIS SCRIPT WILL RUN ON SERVER RESET
+-	script	QUEST_FEED	-,{
+	OnInit:
+//	.@quest_id, .@quest_delay_id, quest name, .@quest_mode(0 = kill and 1 = collect),min lv, max lv, quest_bexp,jexp,wexp,cexp, ctype,@quest_zeny,.@quest_item_reward, .@quest_item_reward_qnty, .@quest_req1, .@quest_req_qnty1, .@quest_req2, .@quest_req_qnty2, .@quest_req3, .@quest_req_qnty3, number of reqs,priority
+	//poring
+	callfunc ("QUEST_ADD", 1001,1002,"Poring",0,1,20,1200,800,0,0,"",750,0,0,1002,10,0,0,0,0,1,99); 
+	//Picky
+	callfunc ("QUEST_ADD", 1003,1004,"Picky",0,1, 20,2000,1200,0,0,"",750,0,0,1049,10,0,0,0,0,1,99); 
+	 //Eggshell Picky
+	callfunc ("QUEST_ADD", 1005,1006,"Eggshell Picky",0,1,20,2300,1500,0,0,"",750,0,0,1050,10,0,0,0,0,1,99); 
+	 //Fabre
+	callfunc ("QUEST_ADD", 1046,1047,"Fabre",0,1,20,2600,1600,0,0,"",750,0,0,1007,10,0,0,0,0,1,99); 
+	 //Chonchon
+	callfunc ("QUEST_ADD", 1007,1008,"Chonchon",0,1,20,3000,1800,0,0,"",750,0,0,1011,10,0,0,0,0,1,99); 
+	//Jellopy Soup
+	callfunc ("QUEST_ADD", 1026,1027,"Jellopy Soup",1,1,20,0,0,0,600,"POT",1500,0,0,30000,10,0,0,0,0,1,99); 
+	//Clover
+	callfunc ("QUEST_ADD", 1048,1049,"Clover",1,1,20,2000,0,1000,0,"",1500,0,0,705,5,0,0,0,0,1,99); 
+	
+	//roda frog
+	callfunc ("QUEST_ADD", 1033,1034,"Roda Frog", 0,10,30,4200,3100,0,0,"",1000,0,0,1012,10, 0, 0, 0, 0, 1, 99); 
+	//Willow
+	callfunc ("QUEST_ADD", 1035,1036,"Willow", 0, 10, 30,5000,3800,0,0,"",1000,0,0,1010,10, 0, 0, 0, 0, 1, 99); 
+	//Snake
+	callfunc ("QUEST_ADD", 1037,1038,"Snake",0,10,30,5600,4500,0,0,"",1000,0,0,1025,10, 0,0,0,0,1,99); 
+	//Familiar
+	callfunc ("QUEST_ADD", 1039,1040,"Familiar",0,10,30,6100,5100,0,0,"",1000,0,0,1005,10,0,0,0,0,1,99); 
+	//Wormtail
+	callfunc ("QUEST_ADD", 1044,1045,"Wormtail",0,10,30,6200,5200,0,0,"",1000,0,0,1024,10,0,0,0,0,1,99); 
+	//Spore
+	callfunc ("QUEST_ADD", 1050,1051,"Spore",0,10,30,6400,5300,0,0,"",1000,0,0,1014,10,0,0,0,0,1,99); 
+	//Rough Skin
+	callfunc ("QUEST_ADD", 1041,1042,"Rough Skin",1,10,30,3000,0,3000,0,"",2000,0,0,30006,5,0,0,0,0,1,99); 
+	//Green Live
+	callfunc ("QUEST_ADD", 1052,1053,"Green live",1,10,30,5000,5000,0,0,"",2000,0,0,993,5,0,0,0,0,1,99); 
+	
+	//Creamy
+	callfunc ("QUEST_ADD", 1054,1055,"Creamy",0,20,40,6800,5500,0,0,"",1250,0,0,1018,10,0,0,0,0,1,99); 
+	//Caramel
+	callfunc ("QUEST_ADD", 1056,1057,"Caramel",0,20,40,7300,6000,0,0,"",1250,0,0,1103,10,0,0,0,0,1,99); 
+	//Bigfoot
+	callfunc ("QUEST_ADD", 1058,1059,"Bigfoot",0,20,40,7800,6500,0,0,"",1250,0,0,1060,10,0,0,0,0,1,99); 
+	//Elder Willow
+	callfunc ("QUEST_ADD", 1060,1061,"Elder Willow",0,20,40,8300,7000,0,0,"",1250,0,0,1033,10,0,0,0,0,1,99); 
+	//Honey
+	callfunc ("QUEST_ADD", 1066,1067,"Honey",1,20,40,3000,10000,0,0,"",2500,0,0,518,10,0,0,0,0,1,99); 
+	//Red Blood
+	callfunc ("QUEST_ADD", 1068,1069,"Red Blood",1,20,40,3000,0,10000,0,"",2500,0,0,990,5,0,0,0,0,1,99); 
+	
+	//Zombie
+	callfunc ("QUEST_ADD", 30013,30014,"Zombie",0,30,50,13650,12700,0,0,"",1500,0,0,1015,15,0,0,0,0,1,99); 
+	//Wolf
+	callfunc ("QUEST_ADD", 30029,30030,"Wolf",0,30,50,15750,13350,0,0,"",1500,0,0,1013,15,0,0,0,0,1,99); 
+	//Skeleton Soldier
+	callfunc ("QUEST_ADD", 30015,30016,"Soldier Skeleton",0,30,50,16050,13800,0,0,"",1500,0,0,1028,15,0,0,0,0,1,99); 
+	//Archer Skeleton
+	callfunc ("QUEST_ADD", 30017,30018,"Archer Skeleton",0,30,50,16500,14100,0,0,"",1500,0,0,1016,15,0,0,0,0,1,99); 
+	//Bongun
+	callfunc ("QUEST_ADD", 30019,30020,"Bongun",0,30,50,18600,15750,0,0,"",1500,0,0,1188,15,0,0,0,0,1,99); 
+	//Wind of Verdure
+	callfunc ("QUEST_ADD", 30021,30022,"Wind of Verdure",1,30,50,5000,0,22000,0,"",3000,0,0,992,10,0,0,0,0,1,99); 
+	//Daenggie
+	callfunc ("QUEST_ADD", 30023,30024,"Daenggie",1,30,50,0,5000,0,2000,"HAT",3000,0,0,901,30,0,0,0,0,1,99); 
+	
+	//Sohee
+	callfunc ("QUEST_ADD", 30025,30026,"Sohee",0,40,60,21450,18150,0,0,"",2000,0,0,1170,15,0,0,0,0,1,90); 
+	//Peco Peco
+	callfunc ("QUEST_ADD", 30034,30035,"Poporing",0,40,60,21750,18450,0,0,"",2000,0,0,1031,15,0,0,0,0,1,91); 
+	//Nine Tail
+	callfunc ("QUEST_ADD", 30027,30028,"Nine Tail",0,40,60,25500,21600,0,0,"",2000,0,0,1180,15,0,0,0,0,1,92); 
+	//Peco Peco
+	callfunc ("QUEST_ADD", 30036,30037,"Peco Peco",0,40,60,27150,23100,0,0,"",2000,0,0,1019,15,0,0,0,0,1,93); 
+	//Magnolia
+	callfunc ("QUEST_ADD", 30050,30051,"Magnolia",0,40,60,34350,27450,0,0,"",2000,0,0,1138,15,0,0,0,0,1,94); 
+	//Cactus Needle
+	callfunc ("QUEST_ADD", 30052,30053,"Cactus Needle",1,40,60,10000,0,0,4000,"WEP",3000,0,0,952,30,0,0,0,0,1,95); 
+	//Yellow Herb
+	callfunc ("QUEST_ADD", 30054,30055,"Yellow Herb",1,40,60,0,10000,30000,0,"",3000,0,0,508,15,0,0,0,0,1,96); 
+	end;
+}
+
+//DO NOT TOUCH AFTER THIS LINE
+// ****************************************************************************************************************************************************
+
+function	script	QUEST_ADD	{
+	.@quest_id = getarg(0);
+	.@quest_delay_id = getarg(1);
+	.@quest_name$ = getarg(2);
+	.@quest_mode= getarg(3); // 0 = kill and 1 = collect
+	.@quest_min_lv = getarg(4); //minlv
+	.@quest_max_lv = getarg(5); //maxlv
+	.@quest_exp= getarg(6); //bexp
+	.@quest_jexp= getarg(7); //jexp
+	.@quest_wexp= getarg(8); //wexp
+	.@quest_cexp= getarg(9); //cexp
+	.@cexp_type$ = getarg(10); //crafting type
+	.@quest_zeny= getarg(11); //zeny
+	.@quest_item= getarg(12); //item reward
+	.@quest_item_qnty=getarg(13); //item reward qnty
+	.@req1 = getarg(14);
+	.@req1_qnty = getarg(15);
+	.@req2 = getarg(16);
+	.@req2_qnty = getarg(17);	
+	.@req3 = getarg(18);
+	.@req3_qnty = getarg(19);
+	.@num_of_reqs = getarg(20);
+	.@priority = getarg(21);
+	
+	query_sql (("SELECT COUNT(*) FROM questboard WHERE quest_id = "+.@quest_id+""),.@SQLCOUNT);
+	if (!.@SQLCOUNT){
+		debugmes "Quest id "+.@quest_id+" added to the sql questboard table.";
+	L_ADD:
+		query_sql ("INSERT INTO questboard (quest_id, quest_delay_id, name, quest_mode, min_lv, max_lv, bexp, jexp, wexp, cexp, ctype, zeny, item_reward, item_reward_qnty, num_of_reqs, req1, req1_qnty, req2, req2_qnty, req3, req3_qnty, priority) VALUES ("+.@quest_id+","+.@quest_delay_id+", '"+.@quest_name$+"', "+.@quest_mode+", "+.@quest_min_lv+", "+.@quest_max_lv+", "+.@quest_exp+", "+.@quest_jexp+", "+.@quest_wexp+", "+.@quest_cexp+", '"+.@cexp_type$+"', "+.@quest_zeny+", "+.@quest_item+", "+.@quest_item_qnty+", "+.@num_of_reqs+", "+.@req1+", "+.@req1_qnty+", "+.@req2+", "+.@req2_qnty+", "+.@req3+", "+.@req3_qnty+", "+.@priority+")");
+	}
+	else{
+		query_sql ("DELETE FROM questboard WHERE quest_id = "+.@quest_id+"");
+		goto L_ADD;
+	}
+	return;
+	
+}
+
+//	.@quest_id, .@quest_delay_id, .@quest_mode(0 = kill and 1 = collect), max lv, quest_bexp,jexp,wexp,cexp.@quest_zeny,.@quest_item, .@quest_item_qnty, .@quest_req, .@quest_req_qnty
+ function	script	QUEST_DISPLAY	{
+	.@quest_id = getarg(0);	 
+	query_sql(("SELECT quest_delay_id, quest_mode, max_lv, bexp, jexp, wexp, cexp, ctype, zeny, item_reward, item_reward_qnty, num_of_reqs, req1, req1_qnty, req2, req2_qnty, req3, req3_qnty FROM questboard WHERE quest_id = "+.@quest_id+""), .@quest_delay_id, .@quest_mode, .@quest_max_lv, .@quest_exp, .@quest_jexp, .@quest_wexp, .@quest_cexp, .@cexp_type$, .@quest_zeny, .@quest_item, .@quest_item_qnty, .@num_of_reqs, .@req1, .@req1_qnty, .@req2, .@req2_qnty, .@req3, .@req3_qnty);
+	
+	// query_sql(("SELECT quest_delay_id, name, quest_mode, max_lv, bexp, jexp, wexp, cexp, ctype, zeny, item_reward, item_reward_qnty FROM questboard WHERE quest_id = "+.@quest_id+""), .@quest_delay_id, .@quest_mode, .@quest_max_lv, .@quest_exp, .@quest_jexp, .@quest_wexp, .@quest_cexp, .@cexp_type$, .@quest_zeny, .@quest_item, .@quest_item_qnty);
+
+	// query_sql(("SELECT num_of_reqs, req1, req1_qnty, req2, req2_qnty, req3, req3_qnty FROM questboard WHERE quest_id = "+.@quest_id+""), .@num_of_reqs, .@req1, .@req1_qnty, .@req2, .@req2_qnty, .@req3, .@req3_qnty);	
+	
+	if(.@cexp_type$ == "POT") .@NAME$ = "Brewing";
+	else if(.@cexp_type$ == "WEP") .@NAME$ = "Weapon Forging";
+	else if(.@cexp_type$ == "ARM") .@NAME$ = "Armor Crafting";
+	else if( .@cexp_type$ == "HAT") .@NAME$ = "Headgear Making";
+	
+
+	// .@count = getargcount();
+	// if ((.@count % 2) || .@count < 14){ 
+		// debugmes "QUEST CHECK id "+.@quest_id+" has invalid number of args = "+.@count+"";
+		// mes "Error";
+		// close;
+	// }
+	for(.@i = 0; .@i<.@num_of_reqs; .@i++){
+		set .@quest_req[.@i],getd(".@req" + (.@i + 1) + "");
+		set .@quest_qnty[.@i],getd(".@req" + (.@i + 1) + "_qnty");
+	}
+	//DISPLAY of requirements
+	mes "[^0000FFQuest Board^000000]";
+	
+	.@status = checkquest(.@quest_id);
+
+	if ((.@status == -1 || .@status == 2) && BaseLevel > .@quest_max_lv)
+			mes "^ff0000You can only accept this quest if you are Lv "+.@quest_max_lv+" or lower.^000000", " ";
+	
+	if(!.@quest_mode){
+		mes "Hunting target(s): ";
+		.@size= getarraysize(.@quest_req);
+		for (.@i = 0; .@i < .@size; .@i++){
+			mes .@quest_qnty[.@i]+" x ^FF0000"+strmobinfo(1, .@quest_req[.@i])+"^000000";
+		}
+	}
+	
+	else {
+		mes "Gathering target(s): ";
+		.@size= getarraysize(.@quest_req);
+		for (.@i = 0; .@i < .@size; .@i++){
+			if (countitem(.@quest_req[.@i]) >= .@quest_qnty[.@i]) set .@color$, "^009900";
+			else set .@color$, "^FF0000";
+			mes "<ITEM>"+getitemname(.@quest_req[.@i])+"<INFO>"+.@quest_req[.@i]+"</INFO></ITEM> ("+.@color$+""+countitem(.@quest_req[.@i])+" / "+.@quest_qnty[.@i]+")^000000";
+		}
+	}
+	
+	mes " ","Quest Rewards: ";
+	if (.@quest_exp) mes "^0094FFBase Experience: ^000000" +.@quest_exp+"";
+	if (.@quest_jexp) mes "^0094FFJob Experience: ^000000" +.@quest_jexp+"";
+	if (.@quest_wexp) mes "^0094FFWeapon Experience: ^000000" +.@quest_wexp+"";
+	if (.@quest_cexp) mes "^0094FF"+.@NAME$+" Experience: ^000000" +.@quest_cexp+"";
+	if (.@quest_zeny) mes "^0094FFZeny: ^000000" +.@quest_zeny+"";
+	if (.@quest_item) mes "^0094FFItem: ^000000" +.@quest_item_qnty+ " x " +.@quest_item+"";
+	
+	if ((.@status == -1 || .@status == 2) && BaseLevel <= .@quest_max_lv){ //IF QUEST NOT ACTIVE
+		.@status2 = checkquest(.@quest_delay_id, PLAYTIME);
+		if (.@status2 == -1 || .@status2 == 2){
+			switch (select ( "Accept", "Cancel")){
+				case 1:
+					if (.@status2 == -1) setquest (.@quest_id);
+					else changequest .@quest_delay_id, .@quest_id;
+				default:
+					close;
+					break;
+			}
+		}
+			
+		else {
+			mes " ","^FF0000Quest is on cooldown^000000";
+		}
+	}
+	
+	else if (.@status == 0 || .@status == 1){ //QUEST ACTIVE
+		if (.@quest_mode){ //collect type
+			.@complete = 2;
+			.@size= getarraysize(.@quest_req);
+			for (.@i = 0; .@i < .@size; .@i++)
+				if(countitem(.@quest_req[.@i])  < .@quest_qnty[.@i]) .@complete = 0;
+			
+		}
+		
+		else .@complete = checkquest(.@quest_id, HUNTING);
+		
+		if (.@complete == 2){
+			mes " ","^009900The quest has been completed.^000000";
+			switch(select ("Collect reward", "Cancel")){
+				case 1:
+				if (.@quest_item) if (!checkweight(.@quest_item,.@quest_item_qnty)) {
+					next;
+					mes "[^0000FFQuest Board^000000]";
+					mes "Sorry, you don't have enough weight capacity to receive the quest rewards!";
+					close;
+				}
+				.@cheater = 0;
+				if (.@quest_mode) for (.@i = 0; .@i < .@size; .@i++) if(countitem(.@quest_req[.@i])  < .@quest_qnty[.@i]) .@cheater = 1;
+				if (!.@cheater){
+					changequest (.@quest_id, .@quest_delay_id);
+					if (.@quest_mode){
+						.@size= getarraysize(.@quest_req);
+						for (.@i = 0; .@i < .@size; .@i++) delitem .@quest_req[.@i], .@quest_qnty[.@i];
+					}
+					getexp .@quest_exp, .@quest_jexp;
+					if (.@quest_wexp) callfunc "WEAPON_EXP_GAIN", .@quest_wexp;
+					if (.@quest_cexp) callfunc "CRAFTING_EXP", .@cexp_type$, .@quest_cexp;
+					if (.@quest_zeny) set Zeny, Zeny + .@quest_zeny;
+					if (.@quest_item) getitem .@quest_item, .@quest_item_qnty;
+				}	
+				else{
+					next;
+					mes "[^0000FFQuest Board^000000]";
+					mes "Error. Be sure the items are still in your inventory.";
+				}
+				default:
+				close;
+				break;
+			}
+		}
+		else {
+			mes " ","^FF0000Quest not complete.^000000";
+			close;
+		}
+	}
+	close;
+ }
+ 
+ 
+// quest id, quest_delay_id, quest name, quest max level
+function	script	QUEST_AVAILABLE	{
+	if (checkquest(getarg(0), HUNTING) == 2) return "^009900" + getarg(2) + "^000000"; //if done
+	else if (isbegin_quest(getarg(0)) == 1) return "^FF7700" + getarg(2) + "^000000"; //if active
+	else if (BaseLevel <= getarg(3)){
+		if (isbegin_quest(getarg(1)) && checkquest(getarg(1),PLAYTIME) != 2) return "^808080" + getarg(2) + "^000000"; //on cooldown
+		if (isbegin_quest(getarg(1)))	erasequest(getarg(1));
+			return getarg(2); // available
+	}
+	else{
+		if (isbegin_quest(getarg(1)))	erasequest(getarg(1));
+		return "^FF0000" + getarg(2) + "^000000"; //over max lv
+	}
+}
+
+function	script	QUEST_DELETE	{
+	.@count = getargcount();
+	for (.@i = 0; .@i < .@count; .@i+=2){
+		if (checkquest(getarg(.@i)) != -1 && (checkquest(getarg(.@i), PLAYTIME) == 2 || BaseLevel > getarg(.@i + 1))) erasequest(getarg(.@i));
+	}
+	return;
+}

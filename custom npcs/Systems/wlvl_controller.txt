@@ -1,0 +1,202 @@
+//NOTES
+//1.Daggers	2.One-Handed Swords	3.Two-Handed Swords	4.One-Handed Spears	5.Two-Handed Spears	6.One-Handed Axes	7.Two-Handed Axes	8.Maces	9.(not used)
+//10.Wand/Staff	11.Bows/Crossbows	12.Knuckle Weapons	13.Musical Instruments	14.Whips	15.Books	16.Katars	17.Revolvers	18.Rifles
+//19.Shotguns	20.Gatling guns	21.Grenade launchers	22.Fuuma shuriken	23.Two-handed staves	24.Max Type
+//
+
+//Test NPCs
+
+-	script	WEAPON_EXP	-1,{
+
+//WEXP_LV# = exp needed for each lv
+OnInit:
+	$@WEXP_MAX_TYPE = 24;
+	$@WEXP_MAX_LV = 20;
+	$@WEXP_MAX_TYPE_LV = 15;
+	setarray $@WEXP_LV[0], 0,30000,280000,734000,1180000,1910000,3660000,10100000,36000000,127000000,233000000,530000000,670000000,782000000,1040000000,1380000000,536000000,649000000,743000000,1110000000,1780000000;
+	$@WEXP_CAP = 10;	
+	setarray $@WEAPON_TYPE$[0],"", "Dagger", "One-Handed Sword", "Two-Handed Sword", "One-Handed Spear", "Two-Handed Spear", "One-Handed Axe", "Two-Handed Axe", "Mace","", "One-Handed Staff", "Bow","","","","","","","","","","","","Two-handed Staff";
+	//0-22
+end;
+
+OnPCGetExpEvent:
+		callfunc "WEAPON_EXP_GAIN",WEAPONEXPGAINED;
+		
+end;
+}
+
+function	script	WEAPON_LEVEL_MINEQUIP	{
+	.@MINEQUP = getarg(0,0);
+	.@WEAPON_TYPE = getiteminfo(getequipid(EQI_HAND_R),11);
+	query_sql (("SELECT weapon_lv FROM weapon_type_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+.@WEAPON_TYPE+""),.@WEXP_CURRENT_LV);
+	if (.@WEXP_CURRENT_LV < .@MINEQUP){
+		unequip EQI_HAND_R;
+		dispbottom "Your "+$@WEAPON_TYPE$[.@WEAPON_TYPE]+ " Mastery Level needs to be at least "+.@MINEQUP+" to equip this weapon.";
+	}
+	return;
+}
+
+function	script	WEAPON_LEVEL	{
+	.@item_type = getarg(0);
+	query_sql (("SELECT weapon_lv FROM weapon_type_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+.@item_type+""),.@WEXP_CURRENT_LV);
+	return .@WEXP_CURRENT_LV;
+}
+
+
+//EXP AND LEVELING FUNCITIONS
+
+//Function to be called
+function	script	WEAPON_EXP_GAIN	{
+//getarg(0) = exp gained, if zero, function checks if right level
+		@WEXP_CURRENT_REFINE = getequiprefinerycnt(EQI_HAND_R);
+		@WEAPON_TYPE = getiteminfo(getequipid(EQI_HAND_R),11);
+		@WEAPON_ID = getequipid(EQI_HAND_R);
+		.@EXP = getarg(0);
+		
+//WEXP CAP
+		if (!WEXP_TEST_MODE){
+			.@MAX_CAP_WEXP = ($@WEXP_LV[@WEXP_CURRENT_REFINE + 1]/100)*$@WEXP_CAP;
+			if (.@EXP > .@MAX_CAP_WEXP)
+				.@EXP = .@MAX_CAP_WEXP;
+		}
+		
+		if (@WEXP_CURRENT_REFINE >= $@WEXP_MAX_LV) .@EXP = 0;
+		
+		if (@WEAPON_TYPE > 0 && @WEAPON_TYPE < $@WEXP_MAX_TYPE) {
+			if (#SHOW_WEXP) 
+				if (.@EXP > 0){
+					// .@needed = ($@WEXP_LV[@WEXP_CURRENT_REFINE + 1]/100);
+					.@needed = ($@WEXP_LV[@WEXP_CURRENT_REFINE + 1]);
+					// .@EXPa = .@EXP/.@needed;
+					// .@EXPb = .@EXP - (.@EXPa * .@needed);
+					// .@needed /= 100;
+					// .@EXPb = .@EXPb/(.@needed);
+					// if (.@EXPb < 10) .@EXPb *= 10;
+					dispbottom "Weapon Experience Gained: "+.@EXP+" ("+callfunc("getPercent",.@EXP, .@needed) +")";			
+				}
+		
+//Weapon Type EXP		
+			query_sql (("SELECT COUNT(*) FROM weapon_type_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+""),.@SQL_SIZE);
+			if (.@SQL_SIZE == 0){ //if there isnt a table entry for that char and that weapon type
+				query_sql ("INSERT INTO weapon_type_exp (char_id, weapon_type_id, weapon_exp, weapon_lv) VALUES ("+getcharid(0)+","+@WEAPON_TYPE+",0,0)");
+			}
+//Unique Weapon EXP
+			query_sql (("SELECT weapon_lv FROM weapon_type_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+""),@WEXP_CURRENT_LV);
+			
+			if(@WEXP_CURRENT_LV == $@WEXP_MAX_TYPE_LV){ //If Weapon type lv == $@WEXP_MAX_TYPE_LV
+				query_sql (("SELECT COUNT(*) FROM weapon_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+""),.@SQL_SIZE);
+				
+				if (.@SQL_SIZE == 0){ //if there isnt a table entry for that char and that unique weapon. First, get leftover exp, second, create new table row!
+					query_sql (("SELECT weapon_exp FROM weapon_type_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+""),.@WEXP_CURRENT);
+					query_sql ("INSERT INTO weapon_exp (char_id, weapon_id, weapon_type_id, weapon_exp, weapon_lv) VALUES ("+getcharid(0)+","+@WEAPON_ID+","+@WEAPON_TYPE+","+.@WEXP_CURRENT+","+$@WEXP_MAX_TYPE_LV+")");
+				}
+			}		
+			.@CURRENT_WEXP = callfunc ("WEAPON_EXP_UPDATE", .@EXP); 
+			
+			if (@SHOW_CURRENT_WEXP){
+				if (@WEXP_CURRENT_REFINE == $@WEXP_MAX_LV) dispbottom "Current WEXP with the equipped weapon: maxed (level "+$@WEXP_MAX_LV+")";
+				else {
+					if (@WEXP_CURRENT_REFINE >= $@WEXP_MAX_TYPE_LV) dispbottom "Current WEXP with the equipped weapon: "+.@CURRENT_WEXP+"/"+$@WEXP_LV[@WEXP_CURRENT_REFINE + 1]+" ("+callfunc("getPercent", .@CURRENT_WEXP,$@WEXP_LV[@WEXP_CURRENT_REFINE + 1] )+") - level "+@WEXP_CURRENT_REFINE+"";
+					else dispbottom "Current WEXP with equipped weapon type: "+.@CURRENT_WEXP+"/"+$@WEXP_LV[@WEXP_CURRENT_REFINE + 1]+" ("+callfunc("getPercent", .@CURRENT_WEXP,$@WEXP_LV[@WEXP_CURRENT_REFINE + 1] )+") - level "+@WEXP_CURRENT_REFINE+"";
+				}
+			}
+//			dispbottom "Current WLv: "+@WEXP_CURRENT_REFINE+"";
+		}
+		return;
+	}
+
+//Searches for the curent exp of the weapon type	
+function	script	WEAPON_EXP_UPDATE	{
+//getarg(0) = weapon exp gained
+
+	if (@WEXP_CURRENT_LV == $@WEXP_MAX_TYPE_LV){
+		query_sql (("SELECT weapon_lv FROM weapon_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+""),@WEXP_CURRENT_LV);
+		if (@WEXP_CURRENT_LV < $@WEXP_MAX_TYPE_LV)
+			@WEXP_CURRENT_LV = $@WEXP_MAX_TYPE_LV;
+	}
+		
+		
+	if (@WEXP_CURRENT_LV < $@WEXP_MAX_TYPE_LV){
+		query_sql (("SELECT weapon_exp FROM weapon_type_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+""),.@EXP);
+		.@EXP += getarg(0);
+		query_sql("UPDATE weapon_type_exp SET weapon_exp="+.@EXP+" WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+"");	
+	}
+	else{
+		query_sql (("SELECT weapon_exp FROM weapon_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+""),.@EXP);
+		.@EXP += getarg(0);
+		query_sql("UPDATE weapon_exp SET weapon_exp="+.@EXP+" WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+"");		
+	
+	}
+	.@CURRENT_WEXP = callfunc ("WEAPON_EXP_CHECK", .@EXP);
+		
+	return .@CURRENT_WEXP;
+}
+
+//Lv checker
+function	script	WEAPON_EXP_CHECK	{
+//getarg(0) = EXP
+		.@INDEX = @WEXP_CURRENT_LV + 1;
+		.@EXP = getarg(0);
+		.@type = getiteminfo(getequipid(EQI_HAND_R),11);
+		.@ID = getequipid(EQI_HAND_R);
+		while (.@EXP >= $@WEXP_LV[.@INDEX] && .@INDEX <= $@WEXP_MAX_LV){
+			.@EXP -= $@WEXP_LV[.@INDEX];
+			.@INDEX++;
+		}
+		
+		.@WEXP_NEW_LV = .@INDEX - 1;
+		
+		if (@WEXP_CURRENT_LV < $@WEXP_MAX_TYPE_LV && .@WEXP_NEW_LV < $@WEXP_MAX_TYPE_LV){
+			query_sql("UPDATE weapon_type_exp SET weapon_exp="+(.@EXP)+",weapon_lv="+.@WEXP_NEW_LV+" WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+"");
+			
+			if (.@WEXP_NEW_LV > @WEXP_CURRENT_LV) dispbottom "Weapon level up! "+$@WEAPON_TYPE$[.@type]+" type is now Lv." +.@WEXP_NEW_LV + ".",0xffff00;
+		}
+		
+		else if (@WEXP_CURRENT_LV < $@WEXP_MAX_TYPE_LV && .@WEXP_NEW_LV >= $@WEXP_MAX_TYPE_LV){
+			query_sql (("SELECT COUNT(*) FROM weapon_exp WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+""),.@SQL_SIZE);
+			if (.@SQL_SIZE == 0){
+				query_sql ("INSERT INTO weapon_exp (char_id, weapon_id, weapon_type_id, weapon_exp, weapon_lv) VALUES ("+getcharid(0)+","+@WEAPON_ID+","+@WEAPON_TYPE+","+.@EXP+","+.@WEXP_NEW_LV+")");
+			}
+			else
+				query_sql("UPDATE weapon_exp SET weapon_exp="+(.@EXP)+",weapon_lv="+.@WEXP_NEW_LV+" WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+"");
+
+			query_sql("UPDATE weapon_type_exp SET weapon_exp=0,weapon_lv="+$@WEXP_MAX_TYPE_LV+" WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+"");
+			
+			if (.@WEXP_NEW_LV > @WEXP_CURRENT_LV) dispbottom "Weapon level up! "+$@WEAPON_TYPE$[.@type]+" type is now Lv." +.@WEXP_NEW_LV + ".",0xffff00;
+			
+			dispbottom "You have reached the maximum Weapon Mastery Level with Weapon Type: "+$@WEAPON_TYPE$[.@type]+".",0xffff00;
+			dispbottom "Further Weapon Exp will now count towards the specific Weapon's Mastery Level: "+getitemname(.@ID)+" ["+getitemslots(.@ID)+"].",0xffff00;
+		}
+		
+		else if (@WEXP_CURRENT_LV >= $@WEXP_MAX_TYPE_LV){
+			query_sql("UPDATE weapon_exp SET weapon_exp="+(.@EXP)+",weapon_lv="+.@WEXP_NEW_LV+" WHERE char_id="+getcharid(0)+" AND weapon_type_id="+@WEAPON_TYPE+" AND weapon_id="+@WEAPON_ID+"");
+			
+			if (.@WEXP_NEW_LV > @WEXP_CURRENT_LV) dispbottom "Weapon level up! "+getitemname(.@ID)+" ["+getitemslots(.@ID)+"] is now Lv." +.@WEXP_NEW_LV + ".",0xffff00;
+
+		}
+		
+		@WEXP_CURRENT_LV = .@WEXP_NEW_LV;
+
+		if(@WEXP_CURRENT_LV != @WEXP_CURRENT_REFINE)
+			if (@WEXP_CURRENT_LV == $@WEXP_MAX_LV) dispbottom "You have reached the maximum Weapon Mastery Level with "+getitemname(.@ID)+" ["+getitemslots(.@ID)+"].",0xffff00;
+			callfunc "WEAPON_EXP_LEVEL", @WEXP_CURRENT_LV;
+
+		return .@EXP;
+	}
+	
+//Lv up / down the weapon
+function	script	WEAPON_EXP_LEVEL	{
+//getarg(0) = WLVL level calculated
+		if (@WEXP_CURRENT_REFINE > getarg(0))
+			downrefitem EQI_HAND_R,(@WEXP_CURRENT_REFINE - getarg(0));
+		if (@WEXP_CURRENT_REFINE < getarg(0)){
+			successrefitem EQI_HAND_R, (getarg(0) - @WEXP_CURRENT_REFINE);
+			if (getarg(0) == $@WEXP_MAX_LV) showscript "Weapon Level Up! Max Level reached!";
+			else if (getarg(0) == $@WEXP_MAX_TYPE_LV) showscript "Weapon Level Up! Max Level reached with Weapon Type!";
+			else showscript "Weapon Level Up!";
+		}
+			
+		@WEXP_CURRENT_REFINE = getequiprefinerycnt(EQI_HAND_R);
+			
+		return;
+	}

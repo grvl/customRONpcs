@@ -1,0 +1,286 @@
+/* USE :
+callfunc "SKILLBOOK_UNLOCK", char_id, skillbook_item_id, item_slot = only unlocks new skill book, wont switch though
+callfunc "SKILLBOOK_SWITCH", char_id, skillbook_item_id, item_slot = switches active skill book with new one (unlocking the new one)
+callfunc "SKILLBOOK_REMOVE", char_id, item_slot = deletes all skill books from that item_slot on the players inventory
+callfunc "SKILLBOOK_COUNT", char_id, slot = returns the number of unlocked skillbooks for the slot
+*/
+
+-	script	SKILLBOOK_VAR	-1,{
+	// OnPCLoginEvent:
+	// callfunc "SKILLBOOK_ONLOGIN_REMOVE";
+	// end;
+	
+	//Slots
+	OnInit:
+	$@ARMOR = 65536;
+	$@WEAPON = 131072;
+	$@SHIELD = 262144;
+	$@SHOES = 524288;
+	$@ACCESSORY = 3145728;
+	$@GARMENT = 8192;
+
+	//Shoes
+	callfunc "SKILLBOOK_NEW", "Soldier''s Skillbook", $@SHOES, 24031, 24032, 24033, 24034;
+	callfunc "SKILLBOOK_NEW", "Mage''s Skillbook", $@SHOES, 24043, 24075, 24076, 24077;
+	callfunc "SKILLBOOK_NEW", "Hunter''s Skillbook", $@SHOES, 24078, 24087, 24104, 24110;
+	//outfit
+	callfunc "SKILLBOOK_NEW", "Swordman Outfit", $@ARMOR, 24027, 24027, 24027, 24027;
+	callfunc "SKILLBOOK_NEW", "Magician Outfit", $@ARMOR, 24028, 24028, 24028, 24028;
+	callfunc "SKILLBOOK_NEW", "Archer Outfit", $@ARMOR, 24029, 24029, 24029, 24029;
+	callfunc "SKILLBOOK_NEW", "Merchant Outfit", $@ARMOR, 24030, 24030, 24030, 24030;
+	//shield
+	callfunc "SKILLBOOK_NEW", "Guardian''s Skillbook", $@SHIELD, 24039, 24044, 24052, 24053;
+	callfunc "SKILLBOOK_NEW", "Fighter''s Skillbook", $@SHIELD, 24054, 24055, 24056, 24057;
+	callfunc "SKILLBOOK_NEW", "Conjurer''s Skillbook", $@SHIELD, 24058, 24059, 24060, 24061;
+	callfunc "SKILLBOOK_NEW", "Medic''s Skillbook", $@SHIELD, 24083, 24086, 24090, 24113;
+	//accessory
+	callfunc "SKILLBOOK_NEW", "Vendor''s Skillbook", $@ACCESSORY, 24016, 24016, 24016, 24016;
+	//Weapon
+	callfunc "SKILLBOOK_NEW", "Dagger Master''s Skillbook", $@WEAPON, 30021, 30022, 30023, 30024;
+	callfunc "SKILLBOOK_NEW", "Berserker''s Skillbook", $@WEAPON, 30025, 30026, 30027, 30028;
+	callfunc "SKILLBOOK_NEW", "Sharpshooter''s Skillbook", $@WEAPON, 30029, 30030, 30031, 30032;
+	callfunc "SKILLBOOK_NEW", "Saint''s Skillbook", $@WEAPON, 30035, 30036, 30037, 30038;
+	end;
+}
+
+//CALL SKILLBOOK SWITCH TO GET A NEW SKILLBOOK
+
+function	script	SKILLBOOK_IS_UNLOCKED	{
+	.@name$ = getarg(0);
+	query_sql (("SELECT id FROM skillbooks WHERE skillbook_name ='"+.@name$+"'"),.@id);
+	query_sql (("SELECT COUNT(*) FROM skillbook_unlocked WHERE skillbook_id = "+.@id+" AND char_id = "+getcharid(0)+""), .@SQLCOUNT);
+	if (.@SQLCOUNT) return true;
+	else return false;
+}
+
+function	script	SKILLBOOK_NEW	{
+	.@skillbookName$ = getarg(0);
+	.@skillbookSlot = getarg(1);
+	.@id1 = getarg(2);
+	.@id2 = getarg(3);
+	.@id3 = getarg(4);
+	.@id4 = getarg(5);
+	
+	query_sql (("SELECT COUNT(*) FROM skillbooks WHERE skillbook_name ='"+.@skillbookName$+"' AND slot = "+.@skillbookSlot+""),.@SQLCOUNT);
+	if (.@SQLCOUNT == 0){	 
+		debugmes "Added skillbook "+.@skillbookName$+" to the skillbook table.";
+		query_sql("INSERT INTO skillbooks (skillbook_name, slot, lvl1_id,lvl2_id,lvl3_id,lvl4_id) VALUES ('" +.@skillbookName$+ "'," +.@skillbookSlot+ "," +.@id1+ "," + .@id2+ "," +.@id3+ "," +.@id4+")");
+	}
+	
+	else {
+		query_sql (("SELECT COUNT(*) FROM skillbooks WHERE skillbook_name ='"+.@skillbookName$+"' AND slot = "+.@skillbookSlot+" AND lvl1_id = "+.@id1+" AND lvl2_id = "+.@id2+" AND lvl3_id = "+.@id3+" AND lvl4_id = "+.@id4+""),.@SQLCOUNT);	
+		if(.@SQLCOUNT == 0){
+			query_sql (("UPDATE skillbooks SET skillbook_name ='"+.@skillbookName$+"', slot = "+.@skillbookSlot+", lvl1_id = "+.@id1+", lvl2_id = "+.@id2+", lvl3_id = "+.@id3+", lvl4_id = "+.@id4+" WHERE skillbook_name ='"+.@skillbookName$+"' AND slot = "+.@skillbookSlot+""),.@SQLCOUNT);	
+			debugmes "Updated skillbook "+.@skillbookName$+" on the skillbook table.";
+		}
+	}
+	
+	return;
+}
+
+function	script	SKILLBOOK_UNLOCK	{ //returns sql_skillbook_id
+	.@char_id = getarg(0);
+	.@skillbook_id = getarg(1);
+	.@slot = getarg(2);
+	.@level = 0;
+	while(!.@sql_skillbook_id && .@level < 4){
+	.@level++;
+	query_sql(("SELECT id FROM skillbooks WHERE lvl"+.@level+"_id = "+.@skillbook_id+" AND slot = "+.@slot+""), .@sql_skillbook_id);
+	}
+	// debugmes "found level "+.@level+ "";
+	if (!.@sql_skillbook_id){
+		debugmes "Book with item ID "+.@skillbook_id+" is not on the sql table. Are you sure you entered the right item slot?";
+		return 0;
+	}
+	query_sql(("SELECT id, lvl FROM skillbook_unlocked WHERE char_id = "+.@char_id+" AND skillbook_id = "+.@sql_skillbook_id+""),.@sql_char_id, .@sql_lvl);
+	if (.@sql_char_id && .@sql_lvl < .@level) query_sql("UPDATE skillbook_unlocked SET lvl ="+.@level+" WHERE id="+.@sql_char_id+"");
+	else if (!.@sql_char_id) query_sql ("INSERT INTO skillbook_unlocked (char_id, skillbook_id, lvl, slot) VALUES ("+.@char_id+","+.@sql_skillbook_id+","+.@level+","+.@slot+")");
+	else if (.@sql_lvl > .@level) return -1; //debugmes "Unlocked book item ID "+.@skillbook_id+" with a lower level. char "+.@char_id+"";
+	return .@sql_skillbook_id;
+}
+
+function	script	SKILLBOOK_REMOVE	{
+	.@char_id = getarg(0);
+	.@sql_skillbook_slot = getarg(1);
+	
+	query_sql (("SELECT lvl1_id, lvl2_id, lvl3_id, lvl4_id FROM skillbooks WHERE slot ="+.@sql_skillbook_slot+""), .@sql_lvl1, .@sql_lvl2, .@sql_lvl3, .@sql_lvl4);
+	.@size = getarraysize(.@sql_lvl1);
+	if (.@sql_skillbook_slot == $@ACCESSORY){
+		query_sql (("SELECT id, skillbook_id, lvl from skillbook_unlocked WHERE char_id = "+.@char_id+" AND active = 2 AND slot = "+.@sql_skillbook_slot+""), .@sql_id, .@sql_skillbook_id, .@sql_lvl);
+		if (.@sql_lvl)query_sql (("SELECT lvl"+.@sql_lvl+"_id from skillbooks WHERE id = "+.@sql_skillbook_id+""),.@keep_accessory);
+		.@accessory2 = getequipid (EQI_SHADOW_ACC_R);
+		.@accessory1 = getequipid (EQI_SHADOW_ACC_L);
+		
+		if (.@accessory2 != .@keep_accessory && .@accessory1 != .@keep_accessory && .@sql_lvl && .accessory2 && .@accessory1){
+			debugmes "invalid skill book accessory equipped by "+.@char_id+"";
+			.@keep_accessory = 0;
+		}
+	}
+	for (.@i = 0; .@i < .@size; .@i++){
+		for (.@j = 1; .@j <= 4; .@j++){
+			.@id = getd(".@sql_lvl"+.@j+"["+.@i+"]");
+		
+				.@qnty = countitem(.@id);
+				if (.@qnty) .@count++;
+			if ( .@id == .@keep_accessory) .@qnty--;
+			delitem .@id, .@qnty;
+			
+			if (.@qnty)dispbottom getitemname(.@id)+" removed.", 0xFF0000;
+		}
+	}
+	if (.@count > 1) debugmes "User "+.@char_id+" had more than 1 skillbook type "+.@sql_skillbook_slot+"";
+	query_sql ("UPDATE skillbook_unlocked SET active = 0 WHERE active = 1 AND char_id = "+.@char_id+" AND slot = "+.@sql_skillbook_slot+"");
+	if (.@sql_skillbook_slot == $@ACCESSORY)
+		query_sql ("UPDATE skillbook_unlocked SET active = 1 WHERE active = 2 AND char_id = "+.@char_id+" AND slot = "+.@sql_skillbook_slot+"");
+		
+	return;
+}
+function	script	SKILLBOOK_SWITCH	{
+	.@char_id = getarg(0);
+	.@skillbook_id = getarg(1);
+	.@sql_slot = getarg(2);
+	
+	callfunc "SKILLBOOK_REMOVE",.@char_id, .@sql_slot;
+	
+	if (.@skillbook_id != 0){
+		.@sql_skillbook_id = callfunc ("SKILLBOOK_UNLOCK",.@char_id, .@skillbook_id, .@sql_slot);
+		if (.@sql_skillbook_id > 0){
+			query_sql(("SELECT id FROM skillbook_unlocked WHERE char_id = "+.@char_id+" AND skillbook_id = "+.@sql_skillbook_id+""), .@sql_id);
+
+			.@qnty = countitem(.@skillbook_id);
+			if (.@qnty > 1) debugmes "More than one skillbook detected on the char id "+.@char_id+"";
+			delitem .@skillbook_id, .@qnty;
+			if(.@qnty)dispbottom getitemname(.@skillbook_id)+" removed.", 0xFF0000;
+			if (.@sql_slot != $@ACCESSORY) query_sql ("UPDATE skillbook_unlocked SET active = 1 WHERE id = "+.@sql_id+" AND char_id = "+.@char_id+"");
+			else query_sql ("UPDATE skillbook_unlocked SET active = 2 WHERE id = "+.@sql_id+" AND char_id = "+.@char_id+"");
+			getitem .@skillbook_id, 1;
+		}
+	}
+	return;
+}
+
+function	script	SKILLBOOK_COUNT	{
+	.@char_id = getarg(0);
+	.@slot = getarg(1);
+	query_sql (("SELECT COUNT(*) FROM skillbook_unlocked WHERE char_id = "+.@char_id+" AND slot = "+.@slot+""),.@unlocked);
+	return .@unlocked;
+}
+
+adv_guild,125,31,7	script	Skillbook Station	111,{
+
+	.@name$ = "[^FF0000Skillbook Switcher^000000]";
+	
+	query_sql (("SELECT COUNT(*) FROM skillbook_unlocked WHERE char_id = "+getcharid(0)+" AND slot != "+$@ARMOR+""),.@unlocked);
+	if (!.@unlocked){
+		mes .@name$;
+		mes "You have no Skillbooks unlocked.";
+		close;
+	}
+
+	mes .@name$;
+	mes "Would you like to switch your active Skillbook?";
+	next;
+	menu "Yes",L_List,"No",-;
+	close;
+	
+L_List:
+
+	mes .@name$;
+	mes "Which slot's Skillbook would you like to swap?";
+	next;
+	switch(select(
+				((SKILLBOOK_COUNT (getcharid(0), $@WEAPON))?"Shadow Weapon":""), 
+				((SKILLBOOK_COUNT (getcharid(0), $@SHIELD))?"Shadow Shield":""),
+				((SKILLBOOK_COUNT (getcharid(0), $@GARMENT))?"Shadow Garment":""),
+				((SKILLBOOK_COUNT (getcharid(0), $@SHOES))?"Shadow Shoes":""), 
+				((SKILLBOOK_COUNT (getcharid(0), $@ACCESSORY))?"Shadow Accessory":""),
+				("Exit")
+				)) {
+	
+	case 1:	.@slot = $@WEAPON;	break;
+		
+	case 2:	.@slot = $@SHIELD;	break;
+	
+	case 3:	.@slot = $@GARMENT;	break;
+		
+	case 4:	.@slot = $@SHOES;	break;
+		
+	case 5:	.@slot = $@ACCESSORY;	break;
+	
+	default: close;				  
+	}
+	
+	query_sql (("SELECT skillbook_id, lvl FROM skillbook_unlocked WHERE char_id = "+getcharid(0)+" AND slot = "+.@slot+""),.@ids, .@lvls);
+	.@size = getarraysize(.@ids);
+	
+	if (!.@size){
+	mes "You have no Skillbooks unlocked.";
+	close;
+	}
+	
+	.@options$ = "";
+	for (.@i = 0; .@i < .@size; .@i++){
+		query_sql (("SELECT skillbook_name FROM skillbooks WHERE id = "+.@ids[.@i]+""),.@sqlname$);
+		if (.@i) set .@options$, .@options$ + ":";
+		set .@options$, .@options$ + .@sqlname$;
+	}
+	
+	if (getstrlen(.@options$) > 1900) debugmes "possible overflow on unlocked skillbooks of slot type = "+.@slot+"";
+	set .@selection,select(.@options$)-1;
+	query_sql (("SELECT lvl"+.@lvls[.@selection]+"_id FROM skillbooks WHERE id = "+.@ids[.@selection]+""),.@item_id);
+	
+	callfunc "SKILLBOOK_SWITCH", getcharid(0), .@item_id, .@slot;
+
+	close;
+	
+OnInit:
+	waitingroom "Skillbook Station",0; 
+	end;
+}
+
+adv_guild,112,32,7	script	Outfit Station	111,{
+
+	.@name$ = "[^FF0000Outfit Switcher^000000]";
+	
+	query_sql (("SELECT COUNT(*) FROM skillbook_unlocked WHERE char_id = "+getcharid(0)+" AND slot = "+$@ARMOR+""),.@unlocked);
+	if (!.@unlocked){
+		mes .@name$;
+		mes "You have no Outfits unlocked.";
+		close;
+	}
+
+	mes .@name$;
+	mes "Would you like to switch your active Outfit?";
+	next;
+	menu "Yes",L_List,"No",-;
+	close;
+	
+L_List:
+	
+	query_sql (("SELECT skillbook_id, lvl FROM skillbook_unlocked WHERE char_id = "+getcharid(0)+" AND slot = "+$@ARMOR+""),.@ids, .@lvls);
+	.@size = getarraysize(.@ids);
+	
+	if (!.@size){
+	mes "You have no unlocked Outfits.";
+	close;
+	}
+	
+	.@options$ = "";
+	for (.@i = 0; .@i < .@size; .@i++){
+		query_sql (("SELECT skillbook_name FROM skillbooks WHERE id = "+.@ids[.@i]+""),.@sqlname$);
+		if (.@i) set .@options$, .@options$ + ":";
+		set .@options$, .@options$ + .@sqlname$;
+	}
+	
+	if (getstrlen(.@options$) > 1900) debugmes "possible overflow on unlocked costumes";
+	set .@selection,select(.@options$)-1;
+	query_sql (("SELECT lvl"+.@lvls[.@selection]+"_id FROM skillbooks WHERE id = "+.@ids[.@selection]+""),.@item_id);
+	
+	callfunc "SKILLBOOK_SWITCH", getcharid(0), .@item_id, $@ARMOR;
+
+	close;
+	
+OnInit:
+	waitingroom "Outfit Station",0; 
+	end;
+}
